@@ -12,6 +12,7 @@ const loadMoreBtn = document.querySelector('.load-more');
 
 let query = '';
 let page = 1;
+let lightbox;
 
 searchForm.addEventListener('submit', onSearch);
 loadMoreBtn.addEventListener('click', onLoadMore);
@@ -19,6 +20,10 @@ loadMoreBtn.addEventListener('click', onLoadMore);
 async function onSearch(event) {
   event.preventDefault();
   query = event.currentTarget.elements.query.value.trim();
+  page = 1;
+  gallery.innerHTML = '';
+  loadMoreBtn.style.display = 'none';
+
   if (query === '') {
     iziToast.warning({
       title: 'Warning',
@@ -26,18 +31,16 @@ async function onSearch(event) {
     });
     return;
   }
-  page = 1;
-  gallery.innerHTML = '';
-  loadMoreBtn.style.display = 'none';
-  await fetchImagesAndRender();
+
+  await fetchImagesAndRender(false);
 }
 
 async function onLoadMore() {
   page += 1;
-  await fetchImagesAndRender();
+  await fetchImagesAndRender(true);
 }
 
-async function fetchImagesAndRender() {
+async function fetchImagesAndRender(shouldScroll) {
   try {
     const data = await fetchImages(query, page);
     if (data.hits.length === 0) {
@@ -49,10 +52,14 @@ async function fetchImagesAndRender() {
     }
     const markup = renderImageGallery(data.hits);
     gallery.insertAdjacentHTML('beforeend', markup);
-    new SimpleLightbox('.gallery a', {
-      captionsData: 'alt',
-      captionDelay: 250,
-    }).refresh();
+    if (!lightbox) {
+      lightbox = new SimpleLightbox('.gallery a', {
+        captionsData: 'alt',
+        captionDelay: 250,
+      });
+    } else {
+      lightbox.refresh();
+    }
 
     if (data.hits.length < 15 || page * 15 >= data.totalHits) {
       iziToast.info({
@@ -64,13 +71,15 @@ async function fetchImagesAndRender() {
       loadMoreBtn.style.display = 'block';
     }
 
-    const { height: cardHeight } = document
-      .querySelector('.gallery-item')
-      .getBoundingClientRect();
-    window.scrollBy({
-      top: cardHeight * 2,
-      behavior: 'smooth',
-    });
+    if (shouldScroll) {
+      const { height: cardHeight } = document
+        .querySelector('.gallery-item')
+        .getBoundingClientRect();
+      window.scrollBy({
+        top: cardHeight * 2,
+        behavior: 'smooth',
+      });
+    }
   } catch (error) {
     iziToast.error({ title: 'Error', message: error.message });
   }
